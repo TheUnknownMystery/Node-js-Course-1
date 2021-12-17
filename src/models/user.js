@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
+const Task = require('../models/task');
+
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+
+const secret_key = require('../../auth/secret_key');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -52,6 +56,12 @@ const userSchema = new mongoose.Schema({
   ],
 });
 
+userSchema.virtual('tasks', {
+  ref: 'Tasks',
+  localField: '_id',
+  foreignField: 'owner',
+});
+
 //creating up a custom function made by us
 userSchema.statics.findByCredentials = async (email, password) => {
   const user = await User.findOne({ email });
@@ -82,6 +92,12 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+userSchema.pre('remove', async function (next) {
+  const user = this;
+  await Task.deleteMany({ owner: user._id });
+  next();
+});
+
 userSchema.methods.toJSON = function () {
   const user = this;
   const userObject = user.toObject();
@@ -93,13 +109,15 @@ userSchema.methods.toJSON = function () {
 };
 userSchema.methods.generateAuthToken = async function () {
   const user = this;
-  const token = jwt.sign({ _id: user._id.toString() }, 'thisismysecret');
+  const token = jwt.sign({ _id: user._id.toString() }, secret_key, {
+    expiresIn: '7 days',
+  });
 
   user.tokens = user.tokens.concat({ token });
   await user.save();
 
   return token;
 };
-const User = mongoose.model('users', userSchema);
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;

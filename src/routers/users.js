@@ -14,9 +14,10 @@ UserRouter.post('/users', async ({ body }, res) => {
   const user = new User(body);
 
   try {
-    const token = await user.generateAuthToken();
     await user.save();
-    res.status(201).send({ user });
+    const token = await user.generateAuthToken();
+
+    res.status(201).send({ user, token });
   } catch (err) {
     res.status(400).send(err);
   }
@@ -32,6 +33,7 @@ UserRouter.post('/users', async ({ body }, res) => {
 
 UserRouter.post('/users/login', async (req, res) => {
   try {
+    console.log(req.body);
     const user = await User.findByCredentials(
       req.body.email,
       req.body.password
@@ -52,6 +54,7 @@ UserRouter.get('/users/logout', auth, async (req, res) => {
     req.user.tokens = req.user.tokens.filter((token) => {
       return token.token !== req.token;
     });
+
     await req.user.save();
     res.send();
   } catch (e) {
@@ -61,13 +64,14 @@ UserRouter.get('/users/logout', auth, async (req, res) => {
 
 UserRouter.post('/users/logoutAll', auth, async (request, response) => {
   try {
-    //setting the tokens to an empty array
-    // request.user.tokens = [];
-    // await request.user.save();
-    // response.send(200);
-    console.log('E');
+    req.user.tokens = req.user.tokens.filter((token) => {
+      return token.token !== req.token;
+    });
+    await req.user.save();
+
+    res.send();
   } catch (e) {
-    response.status(500).send(e);
+    res.status(500).send();
   }
 });
 // UserRouter.get('/users', auth, async (req, res) => {
@@ -121,7 +125,7 @@ UserRouter.get('/users/me', auth, async (req, res) => {
 ////////////////////////////////////////
 //      DELETING A USER USING ID
 ////////////////////////////////////////
-UserRouter.delete('/users/me', async (req, res) => {
+UserRouter.delete('/users/me', auth, async (req, res) => {
   //const ID = req.params.id
   try {
     // const user = await User.findByIdAndDelete(req.user._id);
@@ -130,7 +134,7 @@ UserRouter.delete('/users/me', async (req, res) => {
     //   return res.status(404).send();
     // }
     await req.user.remove();
-    res.send(user);
+    res.send(req.user);
   } catch (e) {
     res.status(500).send();
   }
@@ -149,7 +153,7 @@ UserRouter.patch('/users/me', auth, async (req, res) => {
   }
 
   try {
-    const user = await User.findById(req.user._id);
+    //const user = await User.findById(req.user._id);
 
     updates.forEach((update) => (req.user[update] = req.body[update]));
     await req.user.save();
